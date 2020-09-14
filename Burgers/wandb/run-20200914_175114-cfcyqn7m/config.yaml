@@ -1,0 +1,46 @@
+wandb_version: 1
+
+Activation:
+  desc: null
+  value: tanh
+Batch size:
+  desc: null
+  value: null
+Epochs:
+  desc: null
+  value: 5000
+Learning rate:
+  desc: null
+  value: 0.001
+N_boundary:
+  desc: null
+  value: 1000
+N_domain:
+  desc: null
+  value: 5000
+N_initial:
+  desc: null
+  value: 100
+Number of Neurons:
+  desc: null
+  value: 64
+Nummber of Layers:
+  desc: null
+  value: 4
+Optimizer:
+  desc: null
+  value: Adam
+QN epochs:
+  desc: null
+  value: 50
+Quasi-newtonian:
+  desc: null
+  value: LBFGS
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.9.6
+    framework: torch
+    is_jupyter_run: true
+    is_kaggle_kernel: false
+    python_version: 3.8.3

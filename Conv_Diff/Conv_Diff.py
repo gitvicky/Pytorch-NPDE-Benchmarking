@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep 14 17:21:09 2020
-
+Created on Mon Sep 14 18:10:24 2020
 
 @author: vgopakum
 
-Neural PDE test for Burgers using Pytorch 
-
-PDE: u_t + u*u_x - 0.1*u_xx
-IC: u(0, x) = -sin(pi.x/8)
+PDE: u_t - D*u_xx - D_x*u_x + 0.7*u_x
+D: sin(x/pi)
+D_x: (1/pi)*cos(x/pi)
+IC: u(0, x) = e^((-x-5)**2/(2*0.5**2)) / 2*pi*0.5**2
 BC: Periodic 
-Domain: t ∈ [0,10],  x ∈ [-8,8]
+Domain: t ∈ [0, 2.5],  x ∈ [0, 10]
 
 """
+
 
 import time 
 import os 
@@ -53,7 +53,7 @@ configuration={"Nummber of Layers": 4,
 
 
 
-wandb.init(project='Pytorch NPDE Benchmark - Burgers', name=bench_name, 
+wandb.init(project='Pytorch NPDE Benchmark - Convection-Diffusion', name=bench_name, 
             notes='Unnormalised Inputs - Initial, Boundary and Domain Sampled.',
             config=configuration)
 
@@ -85,20 +85,29 @@ lb, ub = np.asarray([0.0, -8.0]), np.asarray([10.0, 8.0])
 def uniform_sampler(lb, ub, dims, N):
     return  np.asarray(lb) + (np.asarray(ub)-np.asarray(lb))*lhs(dims, N)
 
-IC = lambda x: -np.sin(np.pi*x/8)
 
+mu=5
+sigma=0.5
+IC = lambda x: np.exp(-(x-mu)**2 / (2*sigma**2)) / np.sqrt(2*np.pi*sigma**2)
+
+D_func = lambda x: np.sin(x/np.pi)
+D_x_func = lambda x: (1/np.pi)*np.cos(x/np.pi)
 
 X_i = uniform_sampler([lb[0], lb[1]], [lb[0], ub[0]], 2, N_i)
 X_lb = uniform_sampler([lb[0], lb[1]], [ub[0], lb[1]], 2, N_b)
 X_ub = uniform_sampler([lb[0], ub[1]], [ub[0], ub[1]], 2, N_b)
 X_f = uniform_sampler(lb, ub, 2, N_f)
 u_i = np.expand_dims(IC(X_i[:,1]), 1)
+D_f = np.expand_dims(D_func(X_f[:, 1:2]), 1)
+D_x_f = np.expand_dims(D_x_func(X_f[:, 1:2]), 1)
 
 X_i_torch = torch_tensor_grad(X_i, device_1)
 X_lb_torch = torch_tensor_grad(X_lb, device_1)
 X_ub_torch = torch_tensor_grad(X_ub, device_1)
 X_f_torch = torch_tensor_grad(X_f, device_1)
 u_i_torch = torch_tensor_nograd(u_i, device_1)
+D_f_torch = torch_tensor_grad(D_f, device_1)
+D_x_f_torch = torch_tensor_grad(D_x_f, device_1)
 
 # %%
 
@@ -139,9 +148,8 @@ wandb.watch(npde_net, log='all')
 deriv = lambda u, x: torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u), create_graph=True, allow_unused=True)[0]
  
 
+
 # %%
-
-
 def recon_loss(x, y):
     f = (npde_net(x) - y).pow(2).mean()
     return f
@@ -161,9 +169,9 @@ def bc_loss(X_lb, X_ub):
     u_x_ub = deriv(u_ub, x_ub)
 
 
-    return (u_lb - u_ub).pow(2).mean() + (u_x_lb - u_x_ub).pow(2).mean()
+    return (u_x_lb - 0).pow(2).mean() + (u_x_ub - 0).pow(2).mean()
     
-def npde_loss(X):
+def npde_loss(X, D, D_x):
     t = X[:, 0:1]
     x = X[:, 1:2]
     u = npde_net(torch.cat([t, x],1))
@@ -172,8 +180,9 @@ def npde_loss(X):
     u_xx = deriv(u_x, x)
     u_t = deriv(u, t)
     
-    f = u_t + u*u_x - 0.1*u_xx 
+    f = u_t - D*u_xx - D_x*u_x +0.7*u_x
     return f.pow(2).mean()
+
 
 # %%
 
@@ -251,13 +260,11 @@ wandb.run.summary['Total Time'] = SGD_time + QN_time
 # %%
 
 data_loc = os.path.abspath('.') + '/Data/'
-data = scipy.io.loadmat(data_loc +'burgers_sine.mat')
+data =np.load(data_loc +'Conv_Diff.npz')
 
-
-
-t = data['t'].flatten()[:,None]
-x = data['x'].flatten()[:,None]
-Exact = np.real(data['usol']).T
+t = data['t']
+x = data['x']
+Exact = data['u']
 
 
 X, T = np.meshgrid(x,t)

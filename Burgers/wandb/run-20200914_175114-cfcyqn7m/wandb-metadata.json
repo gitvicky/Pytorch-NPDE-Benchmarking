@@ -1,0 +1,24 @@
+{
+    "root": "/Users/vgopakum/Documents/Code/Pytorch/NPDE-Benchmarking",
+    "program": "/Users/vgopakum/Documents/Code/Pytorch/NPDE-Benchmarking/Burgers/Burgers.py",
+    "git": {
+        "remote": "https://github.com/gitvicky/Pytorch-NPDE-Benchmarking.git",
+        "commit": "be90279ea754c8a4d402506c78d392226d1baee0"
+    },
+    "email": "vignesh7g@gmail.com",
+    "startedAt": "2020-09-14T12:21:13.398986",
+    "host": "J0727-Mac",
+    "username": "vgopakum",
+    "executable": "/Users/vgopakum/opt/anaconda3/envs/pytorch/bin/python",
+    "os": "macOS-10.15.6-x86_64-i386-64bit",
+    "python": "3.8.3",
+    "cpu_count": 8,
+    "args": [],
+    "state": "running",
+    "jobType": null,
+    "mode": "run",
+    "name": "Regular Net",
+    "notes": "Unnormalised Inputs - Initial, Boundary and Domain Sampled.",
+    "project": "Pytorch NPDE Benchmark - Burgers",
+    "heartbeatAt": "2020-09-14T12:21:17.870095"
+}
