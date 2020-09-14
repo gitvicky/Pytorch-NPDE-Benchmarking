@@ -88,11 +88,11 @@ def uniform_sampler(lb, ub, dims, N):
 IC = lambda x: -np.sin(np.pi*x/8)
 
 
-X_i = uniform_sampler([lb[0], lb[1]], [lb[0], ub[0]], 2, N_i)
+X_i = uniform_sampler([lb[0], lb[1]], [lb[0], ub[1]], 2, N_i)
 X_lb = uniform_sampler([lb[0], lb[1]], [ub[0], lb[1]], 2, N_b)
 X_ub = uniform_sampler([lb[0], ub[1]], [ub[0], ub[1]], 2, N_b)
 X_f = uniform_sampler(lb, ub, 2, N_f)
-u_i = np.expand_dims(IC(X_i[:,1]), 1)
+u_i = IC(X_i[:,1:2])
 
 X_i_torch = torch_tensor_grad(X_i, device_1)
 X_lb_torch = torch_tensor_grad(X_lb, device_1)

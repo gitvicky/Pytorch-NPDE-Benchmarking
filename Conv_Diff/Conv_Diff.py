@@ -9,7 +9,7 @@ PDE: u_t - D*u_xx - D_x*u_x + 0.7*u_x
 D: sin(x/pi)
 D_x: (1/pi)*cos(x/pi)
 IC: u(0, x) = e^((-x-5)**2/(2*0.5**2)) / 2*pi*0.5**2
-BC: Periodic 
+BC: Neumann
 Domain: t ∈ [0, 2.5],  x ∈ [0, 10]
 
 """
@@ -79,7 +79,7 @@ N_i = configuration['N_initial']
 N_b = configuration['N_boundary']
 N_f = configuration['N_domain']
 
-lb, ub = np.asarray([0.0, -8.0]), np.asarray([10.0, 8.0])
+lb, ub = np.asarray([0.0, 0.0]), np.asarray([2.5, 10.0])
 
 #Unsupervised approach with no training data 
 def uniform_sampler(lb, ub, dims, N):
@@ -93,13 +93,13 @@ IC = lambda x: np.exp(-(x-mu)**2 / (2*sigma**2)) / np.sqrt(2*np.pi*sigma**2)
 D_func = lambda x: np.sin(x/np.pi)
 D_x_func = lambda x: (1/np.pi)*np.cos(x/np.pi)
 
-X_i = uniform_sampler([lb[0], lb[1]], [lb[0], ub[0]], 2, N_i)
+X_i = uniform_sampler([lb[0], lb[1]], [lb[0], ub[1]], 2, N_i)
 X_lb = uniform_sampler([lb[0], lb[1]], [ub[0], lb[1]], 2, N_b)
 X_ub = uniform_sampler([lb[0], ub[1]], [ub[0], ub[1]], 2, N_b)
 X_f = uniform_sampler(lb, ub, 2, N_f)
 u_i = np.expand_dims(IC(X_i[:,1]), 1)
-D_f = np.expand_dims(D_func(X_f[:, 1:2]), 1)
-D_x_f = np.expand_dims(D_x_func(X_f[:, 1:2]), 1)
+D_f = D_func(X_f[:, 1:2])
+D_x_f = D_x_func(X_f[:, 1:2])
 
 X_i_torch = torch_tensor_grad(X_i, device_1)
 X_lb_torch = torch_tensor_grad(X_lb, device_1)
