@@ -187,7 +187,7 @@ def npde_loss(X, D, D_x):
 # %%
 
 
-learning_rate = 1e-3
+learning_rate = configuration['Learning rate']
 optimizer = torch.optim.Adam(npde_net.parameters(), lr=learning_rate)
 
 

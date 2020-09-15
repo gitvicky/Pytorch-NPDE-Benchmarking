@@ -96,7 +96,7 @@ X_f = uniform_sampler(lb, ub, 3, N_f)
 u_i = IC(X_i[:,1:2], X_i[:,2:3])
 
 X_i_torch = torch_tensor_grad(X_i, device_1)
-X_lowertorch = torch_tensor_grad(X_lower, device_1)
+X_lower_torch = torch_tensor_grad(X_lower, device_1)
 X_upper_torch = torch_tensor_grad(X_upper, device_1)
 X_left_torch = torch_tensor_grad(X_left, device_1)
 X_right_torch = torch_tensor_grad(X_right, device_1)
@@ -171,3 +171,144 @@ def npde_loss(X):
     
     f = u_t - (u_xx + u_yy)
     return f.pow(2).mean()
+
+# %%
+
+learning_rate = configuration['Learning rate']
+optimizer = torch.optim.Adam(npde_net.parameters(), lr=learning_rate)
+
+
+# %%
+
+start_time = time.time()
+
+
+epochs = configuration['Epochs']
+for it in tqdm(range(epochs)):
+    optimizer.zero_grad()
+    
+    initial_loss = recon_loss(X_i_torch, u_i_torch) 
+    boundary_loss = bc_loss(X_lower_torch, X_upper_torch, X_left_torch, X_right_torch)
+    domain_loss = npde_loss(X_f_torch)
+
+    loss = domain_loss + initial_loss + boundary_loss
+    
+    wandb.log({'Initial Loss': initial_loss, 
+               'Boundary Loss': boundary_loss,
+               'Domain Loss': domain_loss,
+               'Total Loss ': loss})
+
+    
+    loss.backward()
+    optimizer.step()
+    
+    print('Total.  It: %d, Loss: %.3e' % (it, loss.item()))
+
+SGD_time = time.time() - start_time 
+wandb.run.summary['SGD Time'] = SGD_time
+
+# %%
+    
+start_time = time.time() 
+optimizer = torch.optim.LBFGS(npde_net.parameters(),
+                              lr=1.0, 
+                              max_iter=5000, 
+                              max_eval=None, 
+                              tolerance_grad=1e-07,
+                              tolerance_change=1e-09)
+
+    
+def closure():    
+    optimizer.zero_grad()
+     
+    domain_loss = npde_loss(X_f_torch)
+    initial_loss = recon_loss(X_i_torch, u_i_torch) 
+    boundary_loss = bc_loss(X_lower_torch, X_upper_torch, X_left_torch, X_right_torch)
+  
+    
+    loss = domain_loss + initial_loss + boundary_loss
+
+    wandb.log({"QN Loss": loss})
+    print('QN.  It: %d, Loss: %.3e' % (ii, loss.item()))
+    loss.backward()
+    return loss
+    
+
+qn_epochs = configuration['QN epochs']
+for ii in tqdm(range(qn_epochs)):
+    optimizer.step(closure)
+
+QN_time = time.time() - start_time 
+wandb.run.summary['QN Time'] = QN_time
+
+wandb.run.summary['Total Time'] = SGD_time + QN_time
+
+# %%
+
+data_loc = os.path.abspath('.') + '/Data/'
+data =np.load(data_loc +'Wave.npz')
+
+t = data['t']
+x = data['x']
+y = data['y']
+
+xx, yy = np.meshgrid(x,y)
+tt = np.repeat(t, len(x)*len(y))
+
+X_star = np.column_stack((tt, np.tile(xx.flatten(), len(t)), 
+                     np.tile(yy.flatten(), len(t))))
+Exact = data['u']
+
+# %%
+
+with torch.no_grad():
+    u_pred = npde_net(torch_tensor_grad(X_star)).cpu().detach().numpy()
+    
+u_pred = np.reshape(u_pred, np.shape(Exact))
+u_actual = Exact
+
+# %%
+
+from matplotlib import cm
+def animation(wave_name, u_field):
+
+    
+    def update_plot(frame_number, u_field, plot):
+        plot[0].remove()
+        plot[0] = ax.plot_surface(xx, yy, u_field[frame_number], cmap=cm.coolwarm, linewidth=2, antialiased=False)
+        
+        
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    
+    plot = [ax.plot_surface(xx, yy, u_field[0], cmap=cm.coolwarm, linewidth=2, antialiased=False)]
+    ax.set_xlim3d(-1.0, 1.0)
+    ax.set_ylim3d(-1.0, 1.0)
+    ax.set_zlim3d(-0.15, 1)
+    
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("U")
+    ax.set_title(wave_name)
+    
+    ax.set_xticks([-1.0, -0.5, 0.0, 0.5, 1.0])
+    ax.set_yticks([-1.0, -0.5, 0.0, 0.5, 1.0])
+    
+    #plt.tight_layout()
+    ax.view_init(elev=30., azim=-110)
+    
+    
+    fps = 50 # frame per sec
+    frn = len(u_field) # frame number of the animation
+    
+    ani = animation.FuncAnimation(fig, update_plot, frn, fargs=(u_field, plot), interval=1000/fps)
+    
+    
+    ani.save(wave_name+'.gif',writer='imagemagick',fps=fps)
+    
+    fn_gif = wave_name + '.gif'
+    wandb.log({wave_name + '' + bench_name: wandb.Video(fn_gif, fps=10, format="gif")})
+    
+animation('Numerical', u_actual)
+animation('Neural Network', u_pred)
+
