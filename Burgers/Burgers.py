@@ -102,9 +102,9 @@ u_i_torch = torch_tensor_nograd(u_i, device_1)
 
 # %%
 
-class net(nn.Module):
+class Net(nn.Module):
     def __init__(self, in_features = 2, out_features=1, num_neurons = 64, activation=torch.nn.Tanh):
-        super(net, self).__init__()
+        super(Net, self).__init__()
         
         self.in_features = in_features
         self.out_features = out_features
@@ -130,9 +130,96 @@ class net(nn.Module):
         
         x_temp = self.layer_output(x_temp)
         return x_temp
-    
 
-npde_net = net()
+
+
+class Resnet(nn.Module):
+    def __init__(self, in_features = 2, out_features=1, num_neurons = 64, activation=torch.nn.Tanh):
+        super(Resnet, self).__init__()
+        
+        self.in_features = in_features
+        self.out_features = out_features
+        self.num_neurons = num_neurons
+        
+        self.act_func = activation()
+        
+        self.block1_layer1 = nn.Linear(self.in_features, self.num_neurons)
+        # self.block1_bn1 = nn.BatchNorm1d(self.num_neurons)
+        self.block1_layer2 = nn.Linear(self.num_neurons, self.num_neurons)
+        # self.block1_bn2 = nn.BatchNorm1d(self.num_neurons)
+        self.block1 = [self.block1_layer1, self.block1_layer2]
+        
+        self.block2_layer1 = nn.Linear(self.in_features + self.num_neurons, self.num_neurons)
+        # self.block2_bn1 = nn.BatchNorm1d(self.num_neurons)
+        self.block2_layer2 = nn.Linear(self.num_neurons, self.num_neurons)
+        # self.block2_bn2 = nn.BatchNorm1d(self.num_neurons)
+        self.block2 = [self.block2_layer1, self.block2_layer2]
+        
+        self.layer_after_block = nn.Linear(self.num_neurons + self.in_features, self.num_neurons)
+        self.layer_output = nn.Linear(self.num_neurons, self.out_features)
+        
+        
+    def forward(self, x):
+        
+        x_temp = x
+        
+        for dense in self.block1:
+            x_temp = self.act_func(dense(x_temp))
+        
+        x_temp = torch.cat([x_temp, x], dim=-1)
+        
+        for dense in self.block2:
+            x_temp = self.act_func(dense(x_temp))
+        
+        x_temp = torch.cat([x_temp, x], dim=-1)
+        x_temp = self.act_func(self.layer_after_block(x_temp))
+        x_temp = self.layer_output(x_temp)
+        return x_temp
+    
+    
+# %%
+
+class CustomLinearLayer(nn.Module):
+    def __init__(self,in_size, out_size):
+        super().__init__()
+        self.weights = nn.Parameter(torch.randn(in_size, out_size))
+        self.bias = nn.Parameter(torch.zeros(out_size))
+        
+    def forward(self, x):
+        return x.mm(self.weights) + self.bias
+    
+    
+class CustomNet(nn.Module):
+    def __init__(self, in_features = 2, out_features=1, num_neurons = 64, activation=torch.nn.Tanh):
+        super(CustomNet, self).__init__()
+        
+        self.in_features = in_features
+        self.out_features = out_features
+        self.num_neurons = num_neurons
+        
+        self.act_func = activation()
+        
+        self.layer1 = CustomLinearLayer(self.in_features, self.num_neurons)
+        self.layer2 = CustomLinearLayer(self.num_neurons, self.num_neurons)
+        self.layer3 = CustomLinearLayer(self.num_neurons, self.num_neurons)
+        self.layer4 = CustomLinearLayer(self.num_neurons, self.num_neurons)
+
+
+        self.layer_output = CustomLinearLayer(self.num_neurons, self.out_features)
+        
+        self.net = [self.layer1, self.layer2, self.layer3, self.layer4]
+        
+    def forward(self, x):
+        x_temp = x
+
+        for dense in self.net:
+            x_temp = self.act_func(dense(x_temp))
+        
+        x_temp = self.layer_output(x_temp)
+        return x_temp
+    
+# %%
+npde_net = Net()
 npde_net = npde_net.to(default_device)
 wandb.watch(npde_net, log='all')
 
